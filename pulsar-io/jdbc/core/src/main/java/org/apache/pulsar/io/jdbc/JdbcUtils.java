@@ -19,23 +19,16 @@
 
 package org.apache.pulsar.io.jdbc;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import com.google.common.collect.Lists;
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import lombok.*;
+import lombok.extern.slf4j.Slf4j;
+
+import java.sql.*;
 import java.util.List;
 import java.util.StringJoiner;
 import java.util.stream.IntStream;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
-import lombok.extern.slf4j.Slf4j;
+
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Jdbc Utils
@@ -68,16 +61,18 @@ public class JdbcUtils {
     public static class TableDefinition {
         private final TableId tableId;
         private final List<ColumnId> columns;
+        private final List<ColumnId> writeableColumns;
         private final List<ColumnId> nonKeyColumns;
         private final List<ColumnId> keyColumns;
 
         private TableDefinition(TableId tableId, List<ColumnId> columns) {
-            this(tableId, columns, null, null);
+            this(tableId, columns, null, null, null);
         }
         private TableDefinition(TableId tableId, List<ColumnId> columns,
-                               List<ColumnId> nonKeyColumns, List<ColumnId> keyColumns) {
+                                List<ColumnId> writeableColumns, List<ColumnId> nonKeyColumns, List<ColumnId> keyColumns) {
             this.tableId = tableId;
             this.columns = columns;
+            this.writeableColumns = writeableColumns;
             this.nonKeyColumns = nonKeyColumns;
             this.keyColumns = keyColumns;
         }
@@ -87,8 +82,8 @@ public class JdbcUtils {
         }
 
         public static TableDefinition of(TableId tableId, List<ColumnId> columns,
-                                         List<ColumnId> nonKeyColumns, List<ColumnId> keyColumns) {
-            return new TableDefinition(tableId, columns, nonKeyColumns, keyColumns);
+                                         List<ColumnId> writeableColumns, List<ColumnId> nonKeyColumns, List<ColumnId> keyColumns) {
+            return new TableDefinition(tableId, columns, writeableColumns, nonKeyColumns, keyColumns);
         }
 
     }
@@ -119,9 +114,10 @@ public class JdbcUtils {
      * Get the {@link TableDefinition} for the given table.
      */
     public static TableDefinition getTableDefinition(
-            Connection connection, TableId tableId, List<String> keyList, List<String> nonKeyList) throws Exception {
+            Connection connection, TableId tableId, List<String> keyList, List<String> nonKeyList,
+            List<String> writeableColumns) throws Exception {
         TableDefinition table = TableDefinition.of(
-                tableId, Lists.newArrayList(), Lists.newArrayList(), Lists.newArrayList());
+                tableId, Lists.newArrayList(), Lists.newArrayList(), Lists.newArrayList(), Lists.newArrayList());
 
         try (ResultSet rs = connection.getMetaData().getColumns(
             tableId.getCatalogName(),
@@ -138,6 +134,9 @@ public class JdbcUtils {
 
                 ColumnId columnId = ColumnId.of(tableId, columnName, sqlDataType, typeName, position);
                 table.columns.add(columnId);
+                if (writeableColumns == null || writeableColumns.contains(columnName)) {
+                    table.writeableColumns.add(columnId);
+                }
                 if (keyList != null) {
                     keyList.forEach((key) -> {
                         if (key.equals(columnName)) {
@@ -167,11 +166,11 @@ public class JdbcUtils {
         builder.append(table.tableId.getTableName());
         builder.append("(");
 
-        table.columns.forEach(columnId -> builder.append(columnId.getName()).append(","));
+        table.writeableColumns.forEach(col -> builder.append(col.getName()).append(','));
         builder.deleteCharAt(builder.length() - 1);
 
         builder.append(") VALUES(");
-        IntStream.range(0, table.columns.size() - 1).forEach(i -> builder.append("?,"));
+        IntStream.range(0, table.writeableColumns.size() - 1).forEach(i -> builder.append("?,"));
         builder.append("?)");
 
         return builder.toString();

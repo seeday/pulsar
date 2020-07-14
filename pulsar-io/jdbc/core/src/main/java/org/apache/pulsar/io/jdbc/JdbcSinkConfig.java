@@ -75,6 +75,12 @@ public class JdbcSinkConfig implements Serializable {
     )
     private String key;
     @FieldDoc(
+            required = false,
+            defaultValue = "",
+            help = "A comma-separated list of all columns that are writeable."
+    )
+    private String columns;
+    @FieldDoc(
         required = false,
         defaultValue = "500",
         help = "The jdbc operation timeout in milliseconds"

@@ -20,22 +20,22 @@
 package org.apache.pulsar.io.jdbc;
 
 import com.google.common.collect.Lists;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import com.google.common.collect.Sets;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.functions.api.Record;
 import org.apache.pulsar.io.core.Sink;
 import org.apache.pulsar.io.core.SinkContext;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 /**
  * A Simple abstract class for Jdbc sink.
@@ -109,10 +109,10 @@ public abstract class JdbcAbstractSink<T> implements Sink<T> {
         flushExecutor.scheduleAtFixedRate(this::flush, timeoutMs, timeoutMs, TimeUnit.MILLISECONDS);
     }
 
-    private void initStatement()  throws Exception {
+    private void initStatement() throws Exception {
         List<String> keyList = Lists.newArrayList();
         String key = jdbcSinkConfig.getKey();
-        if (key !=null && !key.isEmpty()) {
+        if (key != null && !key.isEmpty()) {
             keyList = Arrays.asList(key.split(","));
         }
         List<String> nonKeyList = Lists.newArrayList();
@@ -120,8 +120,13 @@ public abstract class JdbcAbstractSink<T> implements Sink<T> {
         if (nonKey != null && !nonKey.isEmpty()) {
             nonKeyList = Arrays.asList(nonKey.split(","));
         }
+        List<String> writeableCols = null;
+        String ignored = jdbcSinkConfig.getColumns();
+        if (ignored != null && !ignored.isEmpty()) {
+            writeableCols = Arrays.asList(ignored.split(","));
+        }
 
-        tableDefinition = JdbcUtils.getTableDefinition(connection, tableId, keyList, nonKeyList);
+        tableDefinition = JdbcUtils.getTableDefinition(connection, tableId, keyList, nonKeyList, writeableCols);
         insertStatement = JdbcUtils.buildInsertStatement(connection, JdbcUtils.buildInsertSql(tableDefinition));
         if (!nonKeyList.isEmpty()) {
             updateStatement = JdbcUtils.buildUpdateStatement(connection, JdbcUtils.buildUpdateSql(tableDefinition));
@@ -199,8 +204,8 @@ public abstract class JdbcAbstractSink<T> implements Sink<T> {
                             break;
                         case INSERT:
                             bindValue(insertStatement, record, action);
+                            insertStatement.addBatch();
                             count += 1;
-                            insertStatement.execute();
                             break;
                         default:
                             String msg = String.format("Unsupported action %s, can be one of %s, or not set which indicate %s",
@@ -208,6 +213,7 @@ public abstract class JdbcAbstractSink<T> implements Sink<T> {
                             throw new IllegalArgumentException(msg);
                     }
                 }
+                insertStatement.executeBatch();
                 connection.commit();
                 swapList.forEach(Record::ack);
             } catch (Exception e) {
@@ -231,5 +237,4 @@ public abstract class JdbcAbstractSink<T> implements Sink<T> {
             }
         }
     }
-
 }

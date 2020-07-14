@@ -41,7 +41,7 @@ public abstract class BaseJdbcAutoSchemaSink extends JdbcAbstractSink<GenericRec
         GenericRecord record = message.getValue();
         List<ColumnId> columns = Lists.newArrayList();
         if (action == null || action.equals(INSERT)) {
-            columns = tableDefinition.getColumns();
+            columns = tableDefinition.getWriteableColumns();
         } else if (action.equals(DELETE)){
             columns.addAll(tableDefinition.getKeyColumns());
         } else if (action.equals(UPDATE)){

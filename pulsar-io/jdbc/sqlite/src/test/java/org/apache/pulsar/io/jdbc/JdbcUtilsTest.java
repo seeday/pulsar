@@ -84,7 +84,8 @@ public class JdbcUtilsTest {
         List<String> nonKeyList = Lists.newArrayList();
         nonKeyList.add("age");
         nonKeyList.add("long");
-        TableDefinition table = JdbcUtils.getTableDefinition(connection, id, keyList, nonKeyList);
+        List<String> writeableList = Lists.newArrayList("age", "long");
+        TableDefinition table = JdbcUtils.getTableDefinition(connection, id, keyList, nonKeyList, null);
         Assert.assertEquals(table.getColumns().get(0).getName(), "firstName");
         Assert.assertEquals(table.getColumns().get(0).getTypeName(), "TEXT");
         Assert.assertEquals(table.getColumns().get(2).getName(), "age");
