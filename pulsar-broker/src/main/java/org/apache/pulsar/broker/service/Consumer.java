@@ -29,6 +29,7 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collections;
@@ -46,6 +47,7 @@ import org.apache.bookkeeper.util.collections.ConcurrentLongLongPairHashMap;
 import org.apache.bookkeeper.util.collections.ConcurrentLongLongPairHashMap.LongPair;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
+import org.apache.pulsar.broker.service.filtering.Filter;
 import org.apache.pulsar.common.api.proto.PulsarApi;
 import org.apache.pulsar.common.api.proto.PulsarApi.CommandAck;
 import org.apache.pulsar.common.api.proto.PulsarApi.CommandAck.AckType;
@@ -88,6 +90,8 @@ public class Consumer {
     private long lastConsumedTimestamp;
     private long lastAckedTimestamp;
     private Rate chuckedMessageRate;
+
+    private final Filter filter;
 
     // Represents how many messages we can safely send to the consumer without
     // overflowing its receiving queue. The consumer will use Flow commands to
@@ -174,6 +178,21 @@ public class Consumer {
         } else {
             // We don't need to keep track of pending acks if the subscription is not shared
             this.pendingAcks = null;
+        }
+        if (this.metadata.get("__filterClassName") != null) {
+            Filter tempFilter;
+            try {
+                Class filterClazz = Class.forName(this.metadata.get("__filterClassName"));
+                tempFilter = (Filter) filterClazz.getConstructor(String.class)
+                        .newInstance(this.metadata.get("__filterArgument"));
+            } catch (InstantiationException | InvocationTargetException | NoSuchMethodException |
+                    IllegalAccessException | ClassNotFoundException | NullPointerException e) {
+                e.printStackTrace();
+                tempFilter = null;
+            }
+            filter = tempFilter;
+        } else {
+            filter = null;
         }
     }
 
@@ -291,6 +310,20 @@ public class Consumer {
                 ByteBuf metadataAndPayload = entry.getDataBuffer();
                 // increment ref-count of data and release at the end of process: so, we can get chance to call entry.release
                 metadataAndPayload.retain();
+                // take a look at message and filter it out if necessary
+                metadataAndPayload.markReaderIndex();
+                Commands.skipMessageMetadata(metadataAndPayload);
+                metadataAndPayload.skipBytes(metadataAndPayload.readInt());
+                if (this.filter != null && !this.filter.matches(metadataAndPayload)) {
+                    subscription.acknowledgeMessage(Collections.singletonList(entry.getPosition()),
+                            AckType.Individual, null);
+                    messageId.recycle();
+                    messageIdBuilder.recycle();
+                    entry.release();
+                    continue;
+                }
+                metadataAndPayload.resetReaderIndex();
+
                 // skip checksum by incrementing reader-index if consumer-client doesn't support checksum verification
                 if (cnx.getRemoteEndpointProtocolVersion() < ProtocolVersion.v11.getNumber()) {
                     Commands.skipChecksumIfPresent(metadataAndPayload);

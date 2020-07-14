@@ -38,13 +38,13 @@ import org.apache.pulsar.common.api.proto.PulsarApi.CommandSubscribe.SubType;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.policies.data.Policies;
 
-public final class NonPersistentDispatcherSingleActiveConsumer extends AbstractDispatcherSingleActiveConsumer implements NonPersistentDispatcher {
+public class NonPersistentDispatcherSingleActiveConsumer extends AbstractDispatcherSingleActiveConsumer implements NonPersistentDispatcher {
 
-    private final NonPersistentTopic topic;
-    private final Rate msgDrop;
-    private final Subscription subscription;
-    private final ServiceConfiguration serviceConfig;
-    private final RedeliveryTracker redeliveryTracker;
+    protected final NonPersistentTopic topic;
+    protected final Rate msgDrop;
+    protected final Subscription subscription;
+    protected final ServiceConfiguration serviceConfig;
+    protected final RedeliveryTracker redeliveryTracker;
 
     public NonPersistentDispatcherSingleActiveConsumer(SubType subscriptionType, int partitionIndex,
             NonPersistentTopic topic, Subscription subscription) {
