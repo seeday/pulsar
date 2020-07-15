@@ -41,6 +41,7 @@ import io.netty.util.Recycler.Handle;
 import io.netty.util.concurrent.FastThreadLocal;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 import org.apache.pulsar.shaded.com.google.protobuf.v241.ByteString;
 import org.apache.pulsar.shaded.com.google.protobuf.v241.ExtensionRegistryLite;
@@ -60,6 +61,9 @@ public class ByteBufCodedInputStream {
     private int lastTag;
 
     private final Handle<ByteBufCodedInputStream> recyclerHandle;
+
+    private final ArrayList<Integer> limitStack = new ArrayList<>(10);
+    private int limit = Integer.MAX_VALUE;
 
     public static ByteBufCodedInputStream get(ByteBuf buf) {
         ByteBufCodedInputStream stream = RECYCLER.get();
@@ -83,6 +87,7 @@ public class ByteBufCodedInputStream {
         if (recyclerHandle != null) {
             recyclerHandle.recycle(this);
         }
+        limitStack.clear();
     }
 
     public int readTag() throws IOException {
@@ -93,7 +98,7 @@ public class ByteBufCodedInputStream {
 
         lastTag = readRawVarint32();
         if (WireFormat.getTagFieldNumber(lastTag) == 0) {
-            // If we actually read zero (or any tag number corresponding to field
+            // If we actually read zero (or any tag number correspoending to field
             // number zero), that's not a valid tag.
             throw new InvalidProtocolBufferException("CodedInputStream encountered a malformed varint.");
         }
@@ -345,5 +350,20 @@ public class ByteBufCodedInputStream {
         }
 
         buf.readerIndex(buf.readerIndex() + size);
+    }
+
+    public int pushLimit(final int size) {
+        limitStack.add(0, buf.readerIndex() + size);
+        limit = limitStack.stream().min(Integer::compareTo).orElse(Integer.MAX_VALUE);
+        return limit;
+    }
+
+    public void popLimit(final int size) {
+        limitStack.remove(new Integer(size));
+        limit = limitStack.stream().min(Integer::compareTo).orElse(Integer.MAX_VALUE);
+    }
+
+    public int getBytesUntilLimit() {
+        return limit - buf.readerIndex();
     }
 }

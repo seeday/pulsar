@@ -30,12 +30,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
@@ -53,7 +48,6 @@ import org.apache.pulsar.common.api.proto.PulsarApi.CommandAck;
 import org.apache.pulsar.common.api.proto.PulsarApi.CommandAck.AckType;
 import org.apache.pulsar.common.api.proto.PulsarApi.CommandSubscribe.InitialPosition;
 import org.apache.pulsar.common.api.proto.PulsarApi.CommandSubscribe.SubType;
-import org.apache.pulsar.common.api.proto.PulsarApi.IntRange;
 import org.apache.pulsar.common.api.proto.PulsarApi.MessageIdData;
 import org.apache.pulsar.common.api.proto.PulsarApi.ProtocolVersion;
 import org.apache.pulsar.common.naming.TopicName;
@@ -91,8 +85,6 @@ public class Consumer {
     private long lastAckedTimestamp;
     private Rate chuckedMessageRate;
 
-    private final Filter filter;
-
     // Represents how many messages we can safely send to the consumer without
     // overflowing its receiving queue. The consumer will use Flow commands to
     // increase its availability
@@ -120,6 +112,8 @@ public class Consumer {
 
     private final PulsarApi.KeySharedMeta keySharedMeta;
 
+    private final Filter filter;
+
     /**
      * It starts keep tracking the average messages per entry.
      * The initial value is 1000, when new value comes, it will update with
@@ -136,7 +130,7 @@ public class Consumer {
                     int priorityLevel, String consumerName,
                     int maxUnackedMessages, ServerCnx cnx, String appId,
                     Map<String, String> metadata, boolean readCompacted, InitialPosition subscriptionInitialPosition,
-                    PulsarApi.KeySharedMeta keySharedMeta) throws BrokerServiceException {
+                    PulsarApi.KeySharedMeta keySharedMeta, PulsarApi.FilterMeta filterMeta) throws BrokerServiceException {
 
         this.subscription = subscription;
         this.subType = subType;
@@ -179,12 +173,15 @@ public class Consumer {
             // We don't need to keep track of pending acks if the subscription is not shared
             this.pendingAcks = null;
         }
-        if (this.metadata.get("__filterClassName") != null) {
+        if (filterMeta != null) {
             Filter tempFilter;
             try {
-                Class filterClazz = Class.forName(this.metadata.get("__filterClassName"));
-                tempFilter = (Filter) filterClazz.getConstructor(String.class)
-                        .newInstance(this.metadata.get("__filterArgument"));
+                Properties filterProperties = new Properties();
+                filterMeta.getFilterPropertiesList().forEach(kv -> filterProperties.put(kv.getKey(), kv.getValue()));
+
+                Class filterClazz = Class.forName(filterMeta.getFilterClassName());
+                tempFilter = (Filter) filterClazz.getConstructor(Properties.class)
+                        .newInstance(filterProperties);
             } catch (InstantiationException | InvocationTargetException | NoSuchMethodException |
                     IllegalAccessException | ClassNotFoundException | NullPointerException e) {
                 e.printStackTrace();

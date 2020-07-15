@@ -3308,13 +3308,12 @@ public class SimpleProducerConsumerTest extends ProducerConsumerBase {
     }
 
     @Test
-    public void testOnlyConsumeHmessages() throws Exception {
+    public void testBytesPrefixFilter() throws Exception {
         log.info("-- Starting {} test --", methodName);
 
         Consumer<byte[]> consumer = pulsarClient.newConsumer()
                 .topic("persistent://my-property/my-ns/my-topic1")
-                .property("__filterClassName", "org.apache.pulsar.broker.service.filtering.RegexFilter")
-                .property("__filterArgument", "^hel+o-.+")
+                .messageFilterPolicy(MessageFilterPolicy.bytesPrefixPolicy(new byte[]{'1'}))
                 .subscriptionName("my-subscriber-name").subscribe();
 
         ProducerBuilder<byte[]> producerBuilder = pulsarClient.newProducer()
@@ -3325,18 +3324,22 @@ public class SimpleProducerConsumerTest extends ProducerConsumerBase {
         producerBuilder.batchingMaxMessages(5);
 
         Producer<byte[]> producer = producerBuilder.create();
-        for (int i = 0; i < 10; i++) {
-            String message = "hello-masseuse-" + i;
+        for (int i = 0; i < 30; i++) {
+            String message = i + "-hello-world-" + i;
             producer.send(message.getBytes());
         }
 
-        Message<byte[]> msg = null;
         Set<String> messageSet = Sets.newHashSet();
-        for (int i = 0; i < 10; i++) {
+        Message<byte[]> msg = consumer.receive(5, TimeUnit.SECONDS);
+        String receivedMessage = new String(msg.getData());
+        log.debug("Received message: [{}]", receivedMessage);
+        String expectedMessage = "1-hello-world-1";
+        testMessageOrderAndDuplicates(messageSet, receivedMessage, expectedMessage);
+        for (int i = 10; i < 20; i++) {
             msg = consumer.receive(5, TimeUnit.SECONDS);
-            String receivedMessage = new String(msg.getData());
+            receivedMessage = new String(msg.getData());
             log.debug("Received message: [{}]", receivedMessage);
-            String expectedMessage = "hello-masseuse-" + i;
+            expectedMessage = i + "-hello-world-" + i;
             testMessageOrderAndDuplicates(messageSet, receivedMessage, expectedMessage);
         }
         // Acknowledge the consumption of all messages at once

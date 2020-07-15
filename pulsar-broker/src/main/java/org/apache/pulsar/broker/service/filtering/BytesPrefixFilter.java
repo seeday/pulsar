@@ -3,13 +3,15 @@ package org.apache.pulsar.broker.service.filtering;
 import io.netty.buffer.ByteBuf;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Properties;
 
 public class BytesPrefixFilter implements Filter {
 
+    public static final String BYTES_PREFIX_FILTER_PREFIX = "bytes_prefix_filter_prefix";
     private final byte[] prefix;
 
-    public BytesPrefixFilter(String prefix) {
-        this.prefix = prefix.getBytes(StandardCharsets.UTF_8);
+    public BytesPrefixFilter(Properties props) {
+        this.prefix = ((String) props.get(BYTES_PREFIX_FILTER_PREFIX)).getBytes(StandardCharsets.UTF_8);
     }
 
     @Override
