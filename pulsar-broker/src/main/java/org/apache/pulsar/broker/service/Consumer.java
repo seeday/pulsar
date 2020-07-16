@@ -18,23 +18,13 @@
  */
 package org.apache.pulsar.broker.service;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Lists;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
-
-import java.lang.reflect.InvocationTargetException;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-import java.util.concurrent.atomic.LongAdder;
-import java.util.stream.Collectors;
-
 import org.apache.bookkeeper.mledger.Entry;
 import org.apache.bookkeeper.mledger.Position;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
@@ -43,6 +33,8 @@ import org.apache.bookkeeper.util.collections.ConcurrentLongLongPairHashMap.Long
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.broker.service.filtering.Filter;
+import org.apache.pulsar.client.api.Schema;
+import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.common.api.proto.PulsarApi;
 import org.apache.pulsar.common.api.proto.PulsarApi.CommandAck;
 import org.apache.pulsar.common.api.proto.PulsarApi.CommandAck.AckType;
@@ -58,6 +50,15 @@ import org.apache.pulsar.common.util.DateFormatter;
 import org.apache.pulsar.common.util.SafeCollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.lang.reflect.InvocationTargetException;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.concurrent.atomic.LongAdder;
+import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * A Consumer is a consumer currently connected and associated with a Subscription
@@ -167,6 +168,9 @@ public class Consumer {
         stats.setClientVersion(cnx.getClientVersion());
         stats.metadata = this.metadata;
 
+        // no multi-version support, per message schema, etc
+        // gotta check how pulsar client consumers themselves do it
+
         if (Subscription.isIndividualAckMode(subType)) {
             this.pendingAcks = new ConcurrentLongLongPairHashMap(256, 1);
         } else {
@@ -182,8 +186,13 @@ public class Consumer {
                 Class filterClazz = Class.forName(filterMeta.getFilterClassName());
                 tempFilter = (Filter) filterClazz.getConstructor(Properties.class)
                         .newInstance(filterProperties);
-            } catch (InstantiationException | InvocationTargetException | NoSuchMethodException |
-                    IllegalAccessException | ClassNotFoundException | NullPointerException e) {
+                if (tempFilter.isSchemaAware()) {
+                    Schema<GenericRecord> genericRecordSchema = Schema.AUTO_CONSUME();
+                    genericRecordSchema.configureSchemaInfo(topicName, "", cnx.getBrokerService().getPulsar().getSchemaRegistryService()
+                            .getSchema("my-property/my-ns/my-topic1").get().schema.toSchemaInfo());
+                    tempFilter.setSchema(genericRecordSchema);
+                }
+            } catch (InstantiationException | InvocationTargetException | NoSuchMethodException | IllegalAccessException | ClassNotFoundException | NullPointerException | InterruptedException | ExecutionException e) {
                 e.printStackTrace();
                 tempFilter = null;
             }
@@ -279,6 +288,7 @@ public class Consumer {
         chuckedMessageRate.recordMultipleEvents(totalChunkedMessages, 0);
 
         ctx.channel().eventLoop().execute(() -> {
+            ArrayList<Position> filteredEntries = new ArrayList<>();
             for (int i = 0; i < entries.size(); i++) {
                 Entry entry = entries.get(i);
                 if (entry == null) {
@@ -312,8 +322,7 @@ public class Consumer {
                 Commands.skipMessageMetadata(metadataAndPayload);
                 metadataAndPayload.skipBytes(metadataAndPayload.readInt());
                 if (this.filter != null && !this.filter.matches(metadataAndPayload)) {
-                    subscription.acknowledgeMessage(Collections.singletonList(entry.getPosition()),
-                            AckType.Individual, null);
+                    filteredEntries.add(entry.getPosition());
                     messageId.recycle();
                     messageIdBuilder.recycle();
                     entry.release();
@@ -343,6 +352,9 @@ public class Consumer {
                 entry.release();
             }
 
+            if (filteredEntries.size() > 0) {
+                subscription.acknowledgeMessage(filteredEntries, AckType.Individual, null);
+            }
             // Use an empty write here so that we can just tie the flush with the write promise for last entry
             ctx.writeAndFlush(Unpooled.EMPTY_BUFFER, writePromise);
             batchSizes.recyle();

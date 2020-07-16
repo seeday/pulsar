@@ -53,6 +53,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -3304,47 +3305,6 @@ public class SimpleProducerConsumerTest extends ProducerConsumerBase {
                 assertTrue(e.getCause() instanceof PulsarClientException.InvalidMessageException);
             }
         }
-        log.info("-- Exiting {} test --", methodName);
-    }
-
-    @Test
-    public void testBytesPrefixFilter() throws Exception {
-        log.info("-- Starting {} test --", methodName);
-
-        Consumer<byte[]> consumer = pulsarClient.newConsumer()
-                .topic("persistent://my-property/my-ns/my-topic1")
-                .messageFilterPolicy(MessageFilterPolicy.bytesPrefixPolicy(new byte[]{'1'}))
-                .subscriptionName("my-subscriber-name").subscribe();
-
-        ProducerBuilder<byte[]> producerBuilder = pulsarClient.newProducer()
-                .topic("persistent://my-property/my-ns/my-topic1");
-
-        producerBuilder.enableBatching(true);
-        producerBuilder.batchingMaxPublishDelay(10, TimeUnit.MILLISECONDS);
-        producerBuilder.batchingMaxMessages(5);
-
-        Producer<byte[]> producer = producerBuilder.create();
-        for (int i = 0; i < 30; i++) {
-            String message = i + "-hello-world-" + i;
-            producer.send(message.getBytes());
-        }
-
-        Set<String> messageSet = Sets.newHashSet();
-        Message<byte[]> msg = consumer.receive(5, TimeUnit.SECONDS);
-        String receivedMessage = new String(msg.getData());
-        log.debug("Received message: [{}]", receivedMessage);
-        String expectedMessage = "1-hello-world-1";
-        testMessageOrderAndDuplicates(messageSet, receivedMessage, expectedMessage);
-        for (int i = 10; i < 20; i++) {
-            msg = consumer.receive(5, TimeUnit.SECONDS);
-            receivedMessage = new String(msg.getData());
-            log.debug("Received message: [{}]", receivedMessage);
-            expectedMessage = i + "-hello-world-" + i;
-            testMessageOrderAndDuplicates(messageSet, receivedMessage, expectedMessage);
-        }
-        // Acknowledge the consumption of all messages at once
-        consumer.acknowledgeCumulative(msg);
-        consumer.close();
         log.info("-- Exiting {} test --", methodName);
     }
 }
