@@ -8,7 +8,7 @@ import java.util.Properties;
 
 public abstract class Filter {
 
-    private Properties properties;
+    protected Properties properties;
     private Schema<GenericRecord> schema;
 
     Filter(Properties props) {

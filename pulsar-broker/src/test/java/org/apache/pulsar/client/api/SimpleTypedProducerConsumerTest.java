@@ -682,6 +682,14 @@ public class SimpleTypedProducerConsumerTest extends ProducerConsumerBase {
 
         Consumer<AvroEncodedPojo> consumer = pulsarClient
                 .newConsumer(avroSchema)
+                .messageFilterPolicy(new MessageFilterPolicy("org.apache.pulsar.broker.service.filtering.AvroSchemaFilter") {
+                    @Override
+                    public Map<String, String> getProperties() {
+                        HashMap<String, String> map = new HashMap<>();
+                        map.put("message", "my-message-3");
+                        return map;
+                    }
+                })
                 .topic("persistent://my-property/use/my-ns/my-topic1")
                 .subscriptionName("my-subscriber-name")
                 .subscribe();
@@ -698,7 +706,7 @@ public class SimpleTypedProducerConsumerTest extends ProducerConsumerBase {
 
         Message<AvroEncodedPojo> msg = null;
         Set<AvroEncodedPojo> messageSet = Sets.newHashSet();
-        for (int i = 0; i < 10; i++) {
+        for (int i = 3; i < 4; i++) {
             msg = consumer.receive(5, TimeUnit.SECONDS);
             AvroEncodedPojo receivedMessage = msg.getValue();
             log.debug("Received message: [{}]", receivedMessage);
@@ -707,6 +715,7 @@ public class SimpleTypedProducerConsumerTest extends ProducerConsumerBase {
         }
         // Acknowledge the consumption of all messages at once
         consumer.acknowledgeCumulative(msg);
+        assertNull(consumer.receive(1, TimeUnit.SECONDS));
         consumer.close();
 
         SchemaRegistry.SchemaAndMetadata storedSchema = pulsar.getSchemaRegistryService()

@@ -189,7 +189,7 @@ public class Consumer {
                 if (tempFilter.isSchemaAware()) {
                     Schema<GenericRecord> genericRecordSchema = Schema.AUTO_CONSUME();
                     genericRecordSchema.configureSchemaInfo(topicName, "", cnx.getBrokerService().getPulsar().getSchemaRegistryService()
-                            .getSchema("my-property/my-ns/my-topic1").get().schema.toSchemaInfo());
+                            .getSchema(TopicName.get(topicName).getSchemaName()).get().schema.toSchemaInfo());
                     tempFilter.setSchema(genericRecordSchema);
                 }
             } catch (InstantiationException | InvocationTargetException | NoSuchMethodException | IllegalAccessException | ClassNotFoundException | NullPointerException | InterruptedException | ExecutionException e) {

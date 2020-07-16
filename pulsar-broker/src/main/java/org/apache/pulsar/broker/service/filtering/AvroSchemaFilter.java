@@ -3,6 +3,7 @@ package org.apache.pulsar.broker.service.filtering;
 import io.netty.buffer.ByteBuf;
 import org.apache.pulsar.client.api.schema.GenericRecord;
 
+import java.util.Map;
 import java.util.Properties;
 
 public class AvroSchemaFilter extends Filter {
@@ -13,9 +14,15 @@ public class AvroSchemaFilter extends Filter {
 
     @Override
     public boolean matches(ByteBuf val) {
-        GenericRecord gr = getSchema().decode(val.array());
-        System.out.println("gr.getFields() = " + gr.getFields());
+        byte[] b = new byte[val.readableBytes()];
+        val.readBytes(b);
+        GenericRecord gr = getSchema().decode(b);
 
+        for (Map.Entry<Object, Object> entry : properties.entrySet()) {
+            if (!gr.getField((String) entry.getKey()).equals(entry.getValue())) {
+                return false;
+            }
+        }
         return true;
     }
 
