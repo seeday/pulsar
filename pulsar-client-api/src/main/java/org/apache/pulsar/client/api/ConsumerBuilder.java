@@ -578,8 +578,8 @@ public interface ConsumerBuilder<T> extends Cloneable {
     ConsumerBuilder<T> keySharedPolicy(KeySharedPolicy keySharedPolicy);
 
     /**
-     * TODO
-     * @param messageFilterPolicy
+     * Set message filtering policy for consumer.
+     * @param messageFilterPolicy The {@link MessageFilterPolicy} to use
      * @return
      */
     ConsumerBuilder<T> messageFilterPolicy(MessageFilterPolicy messageFilterPolicy);

@@ -34,7 +34,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 import lombok.experimental.UtilityClass;
@@ -552,10 +551,13 @@ public class Commands {
     }
 
     public static ByteBuf newSubscribe(String topic, String subscription, long consumerId, long requestId,
-                                       SubType subType, int priorityLevel, String consumerName, boolean isDurable, MessageIdData startMessageId,
-                                       Map<String, String> metadata, boolean readCompacted, boolean isReplicated,
-                                       InitialPosition subscriptionInitialPosition, long startMessageRollbackDurationInSec,
-                                       SchemaInfo schemaInfo, boolean createTopicIfDoesNotExist, KeySharedPolicy keySharedPolicy, MessageFilterPolicy filterPolicy) {
+                                       SubType subType, int priorityLevel, String consumerName, boolean isDurable,
+                                       MessageIdData startMessageId, Map<String, String> metadata,
+                                       boolean readCompacted, boolean isReplicated,
+                                       InitialPosition subscriptionInitialPosition,
+                                       long startMessageRollbackDurationInSec, SchemaInfo schemaInfo,
+                                       boolean createTopicIfDoesNotExist, KeySharedPolicy keySharedPolicy,
+                                       MessageFilterPolicy filterPolicy) {
         CommandSubscribe.Builder subscribeBuilder = CommandSubscribe.newBuilder();
         subscribeBuilder.setTopic(topic);
         subscribeBuilder.setSubscription(subscription);
@@ -591,7 +593,8 @@ public class Commands {
         if (filterPolicy != null) {
             PulsarApi.FilterMeta.Builder filterMetaBuilder = PulsarApi.FilterMeta.newBuilder();
             filterMetaBuilder.setFilterClassName(filterPolicy.getFilterClassName());
-            filterPolicy.getProperties().forEach((s, s2) -> filterMetaBuilder.addFilterProperties(KeyValue.newBuilder().setKey(s).setValue(s2).build()));
+            filterPolicy.getProperties().forEach((s, s2) ->
+                    filterMetaBuilder.addFilterProperties(KeyValue.newBuilder().setKey(s).setValue(s2).build()));
             subscribeBuilder.setFilterMeta(filterMetaBuilder.build());
         }
 

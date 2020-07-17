@@ -5,6 +5,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+/**
+ * This allows message filtering to be configured and happen on the brokers.
+ */
 public abstract class MessageFilterPolicy {
 
     protected final String className;
@@ -31,6 +34,9 @@ public abstract class MessageFilterPolicy {
         return new RegexFilterPolicy(pattern);
     }
 
+    /**
+     * This filter simply matches against the bytes of the message.
+     */
     public static class BytesPrefixFilterPolicy extends MessageFilterPolicy {
         public BytesPrefixFilterPolicy(byte[] prefix) {
             super("org.apache.pulsar.broker.service.filtering.BytesPrefixFilter");
@@ -38,6 +44,9 @@ public abstract class MessageFilterPolicy {
         }
     }
 
+    /**
+     * This filter matches against a string or byte[] using a java regex.
+     */
     public static class RegexFilterPolicy extends MessageFilterPolicy {
         public RegexFilterPolicy(Pattern pattern) {
             super("org.apache.pulsar.broker.service.filtering.RegexFilter");
