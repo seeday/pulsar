@@ -682,7 +682,7 @@ public class SimpleTypedProducerConsumerTest extends ProducerConsumerBase {
 
         Consumer<AvroEncodedPojo> consumer = pulsarClient
                 .newConsumer(avroSchema)
-                .messageFilterPolicy(new MessageFilterPolicy("org.apache.pulsar.broker.service.filtering.AvroSchemaFilter") {
+                .messageFilterPolicy(new MessageFilterPolicy("org.apache.pulsar.broker.service.filtering.BasicAvroFilter") {
                     @Override
                     public Map<String, String> getProperties() {
                         HashMap<String, String> map = new HashMap<>();

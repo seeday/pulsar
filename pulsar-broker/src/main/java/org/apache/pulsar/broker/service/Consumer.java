@@ -178,14 +178,13 @@ public class Consumer {
             this.pendingAcks = null;
         }
         if (filterMeta != null) {
-            Filter tempFilter;
+            Filter tempFilter = null;
             try {
                 Properties filterProperties = new Properties();
                 filterMeta.getFilterPropertiesList().forEach(kv -> filterProperties.put(kv.getKey(), kv.getValue()));
 
                 Class filterClazz = Class.forName(filterMeta.getFilterClassName());
-                tempFilter = (Filter) filterClazz.getConstructor(Properties.class)
-                        .newInstance(filterProperties);
+                tempFilter = (Filter) filterClazz.getConstructor(Properties.class).newInstance(filterProperties);
                 if (tempFilter.isSchemaAware()) {
                     Schema<GenericRecord> genericRecordSchema = Schema.AUTO_CONSUME();
                     genericRecordSchema.configureSchemaInfo(topicName, "", cnx.getBrokerService().getPulsar().getSchemaRegistryService()
@@ -193,8 +192,8 @@ public class Consumer {
                     tempFilter.setSchema(genericRecordSchema);
                 }
             } catch (InstantiationException | InvocationTargetException | NoSuchMethodException | IllegalAccessException | ClassNotFoundException | NullPointerException | InterruptedException | ExecutionException e) {
-                e.printStackTrace();
-                tempFilter = null;
+                log.warn("Setting up filtered schema on " + topicName + " for consumer " + consumerName + " failed", e);
+                ctx().writeAndFlush(Commands.newError(0, PulsarApi.ServerError.UnknownError, e.getCause().getMessage()));
             }
             filter = tempFilter;
         } else {

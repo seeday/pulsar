@@ -6,9 +6,9 @@ import org.apache.pulsar.client.api.schema.GenericRecord;
 import java.util.Map;
 import java.util.Properties;
 
-public class AvroSchemaFilter extends Filter {
+public class BasicAvroFilter extends Filter {
 
-    public AvroSchemaFilter(Properties props) {
+    public BasicAvroFilter(Properties props) {
         super(props);
     }
 
