@@ -18,12 +18,11 @@
     under the License.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <parent>
     <groupId>org.apache.pulsar</groupId>
     <artifactId>docker-images</artifactId>
-    <version>2.6.0</version>
+    <version>2.6.1-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.apache.pulsar</groupId>
@@ -113,8 +112,8 @@
                   <skip>${skipCopyPythonClients}</skip>
                   <tasks>
                     <echo>copy python wheel file</echo>
-                    <mkdir dir="${basedir}/target/python-client"/>
-                    <copydir src="${basedir}/../../pulsar-client-cpp/python/wheelhouse" dest="${basedir}/target/python-client"/>
+                    <mkdir dir="${basedir}/target/python-client" />
+                    <copydir src="${basedir}/../../pulsar-client-cpp/python/wheelhouse" dest="${basedir}/target/python-client" />
                   </tasks>
                 </configuration>
               </execution>
@@ -128,8 +127,8 @@
                   <skip>${skipCopyCppClient}</skip>
                   <tasks>
                     <echo>copy cpp client deb file</echo>
-                    <mkdir dir="${basedir}/target/cpp-client"/>
-                    <copydir src="${basedir}/../../pulsar-client-cpp/pkg/deb/BUILD/DEB" dest="${basedir}/target/cpp-client"/>
+                    <mkdir dir="${basedir}/target/cpp-client" />
+                    <copydir src="${basedir}/../../pulsar-client-cpp/pkg/deb/BUILD/DEB" dest="${basedir}/target/cpp-client" />
                   </tasks>
                 </configuration>
               </execution>
